@@ -1,5 +1,5 @@
 use crossterm::{
-    event::{ self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode },
+    event::{ self, DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{ disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen },
 };
@@ -8,7 +8,6 @@ use tui::{ backend::{ Backend, CrosstermBackend }, Terminal };
 use std::{ io, time::Duration, env, error::Error };
 
 mod s3objects;
-use s3objects::{ S3Object, get_objects };
 
 mod app;
 use app::{App, run_app};
@@ -23,11 +22,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    // execute!(stdout, EnableMouseCapture)?;
+
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let res = run_app(&mut terminal, app, tick_rate);
+    let _res = run_app(&mut terminal, app, tick_rate);
 
     disable_raw_mode()?;
+    // execute!(terminal.backend_mut(), DisableMouseCapture)?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
 

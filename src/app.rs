@@ -1,20 +1,16 @@
+use std::{ io, time::{ Duration, Instant }, env };
 use crossterm::{
-    event::{ self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode },
-    execute,
-    terminal::{ disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen },
+    event::{ self, Event, KeyCode },
 };
 use tui::{
-    backend::{ Backend, CrosstermBackend },
-    layout::{ Constraint, Corner, Direction, Layout },
+    backend::{ Backend },
+    layout::{ Constraint, Direction, Layout, Alignment },
     style::{ Color, Modifier, Style },
-    text::{ Span, Spans, Text },
-    widgets::{ Block, Borders, List, ListItem, ListState },
+    text::{ Text },
+    widgets::{ Block, Borders, List, ListItem, ListState, Paragraph, BorderType },
     Frame,
     Terminal,
 };
-
-use std::{ io, time::{ Duration, Instant }, env, error::Error };
-
 use crate::s3objects::{ S3Object, get_objects };
 
 struct StatefulList<S3Object> {
@@ -35,10 +31,6 @@ fn parse_prev_path(path: &str) -> String {
         return env::var("AWSS3PREFIX").expect("AWSS3PREFIX needs to be defined!");
         //return path.to_string()
     }
-
-    // let prev_path = path_parts[0 .. path_parts.len()-2].join("/").to_string() + "/";
-
-    // prev_path
 }
 
 impl StatefulList<S3Object> {
@@ -50,9 +42,6 @@ impl StatefulList<S3Object> {
 
         let items = rt.block_on(get_objects(bucket_name, path))?;
         let prev_path = parse_prev_path(path);
-
-        // println!("path is {}", path);
-        // println!("prev_path is {}", prev_path);
 
         Ok(StatefulList {
             state: ListState::default(),
@@ -167,18 +156,44 @@ pub fn run_app<B: Backend>(
     }
 }
 
+
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    // Create two chunks with equal horizontal screen space
     let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(90), Constraint::Percentage(90)].as_ref())
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints([
+            Constraint::Length(3), 
+            Constraint::Min(10)
+        ].as_ref())
         .split(f.size());
+
+    let input = Paragraph::new("")
+        // .style(match app.input_mode {
+        //     InputMode::Normal => Style::default(),
+        //     InputMode::Editing => Style::default().fg(Color::Yellow),
+        // })
+        .block(Block::default().borders(Borders::ALL).title("Input"));
+
+
+    f.render_widget(input, chunks[0]);
+
+    
 
     // Iterate through all elements in the `items` app and append some debug text to it.
     let items: Vec<ListItem> = app.items.items
         .iter()
         .map(|res| { ListItem::new(Text::from(res.label.as_str())).style(Style::default()) })
         .collect();
+
+    // let title = Paragraph::new(app.items.current_path.to_string())
+    //         .style(Style::default().fg(Color::LightCyan))
+    //         .alignment(Alignment::Center)
+    //         .block(
+    //             Block::default()
+    //                 .borders(Borders::ALL)
+    //                 .style(Style::default().fg(Color::White))
+    //                 .border_type(BorderType::Plain),
+    //         );
 
     let title = app.items.current_path.to_string();
     // Create a List from all list items and highlight the currently selected one
@@ -188,5 +203,5 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .highlight_symbol(">> ");
 
     // We can now render the item list
-    f.render_stateful_widget(items, chunks[0], &mut app.items.state);
+    f.render_stateful_widget(items, chunks[1], &mut app.items.state);
 }
