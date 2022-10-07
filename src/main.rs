@@ -1,16 +1,16 @@
 use crossterm::{
-    event::{ self, DisableMouseCapture, EnableMouseCapture},
+    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
-    terminal::{ disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen },
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use tui::{ backend::{ Backend, CrosstermBackend }, Terminal };
+use tui::{backend::CrosstermBackend, Terminal};
 
-use std::{ io, time::Duration, env, error::Error };
+use std::{env, io, time::Duration};
 
 mod s3objects;
 
 mod app;
-use app::{App, run_app};
+use app::{run_app, App};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bucket = env::var("AWSS3BUCKET").expect("AWSS3BUCKET needs to be defined!");
@@ -30,7 +30,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     disable_raw_mode()?;
     // execute!(terminal.backend_mut(), DisableMouseCapture)?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
     terminal.show_cursor()?;
 
     Ok(())

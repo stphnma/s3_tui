@@ -12,3 +12,4 @@ aws-sdk-dynamodb = "0.17.0"
 tokio = {version = "1", features=["full"]}
 tui = { version = "0.15", features = ["crossterm"], default-features = false }
 crossterm = "0.19"
+clipboard = "0.5.0"
