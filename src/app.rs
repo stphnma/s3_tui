@@ -270,7 +270,6 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     f.render_widget(search, chunks[0]);
 
-    // Iterate through all elements in the `items` app and append some debug text to it.
     let items: Vec<ListItem> = app
         .items
         .items

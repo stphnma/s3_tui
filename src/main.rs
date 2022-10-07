@@ -22,14 +22,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    // execute!(stdout, EnableMouseCapture)?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let _res = run_app(&mut terminal, app, tick_rate);
 
     disable_raw_mode()?;
-    // execute!(terminal.backend_mut(), DisableMouseCapture)?;
     execute!(
         terminal.backend_mut(),
         LeaveAlternateScreen,
