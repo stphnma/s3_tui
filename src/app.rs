@@ -32,7 +32,7 @@ fn parse_prev_path(path: &str) -> String {
     if path_parts.len() >= 2 {
         return path_parts[0..path_parts.len() - 2].join("/").to_string() + "/";
     } else {
-        return env::var("AWSS3PREFIX").expect("AWSS3PREFIX needs to be defined!");
+        return "".to_string();
     }
 }
 

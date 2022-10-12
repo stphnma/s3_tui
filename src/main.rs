@@ -12,11 +12,21 @@ mod s3objects;
 mod app;
 use app::{run_app, App};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let bucket = env::var("AWSS3BUCKET").expect("AWSS3BUCKET needs to be defined!");
-    let prefix = env::var("AWSS3PREFIX").expect("AWSS3PREFIX needs to be defined!");
+use clap::Parser;
 
-    let app = App::new(&bucket, &prefix);
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    bucket: String,
+    #[arg(short, long)]
+    prefix: String,
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
+    let app = App::new(&args.bucket, &args.prefix);
     let tick_rate = Duration::from_millis(250);
 
     enable_raw_mode()?;
