@@ -43,7 +43,7 @@ async fn get_results(
         .list_objects_v2()
         .bucket(bucket_name)
         .prefix(prefix)
-        .max_keys(200)
+        //.max_keys(200)
         .delimiter("/")
         .send()
         .await?;

@@ -9,8 +9,9 @@ use std::{env, io, time::Duration};
 
 mod s3objects;
 
-mod app;
-use app::{run_app, App};
+// mod app;
+// use app::{run_app, App};
+use hello_aws::{run_app, App};
 
 use clap::Parser;
 

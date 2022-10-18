@@ -1,7 +1,10 @@
-use crate::s3objects::{get_objects, S3Result};
+mod s3objects;
 use clipboard::ClipboardContext;
 use clipboard::ClipboardProvider;
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use eyre;
+use s3objects::{get_objects, S3Result};
+use std::sync::mpsc::TryRecvError;
 use std::{
     env, io,
     time::{Duration, Instant},
@@ -14,6 +17,9 @@ use tui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     Frame, Terminal,
 };
+
+mod events;
+use events::Events;
 
 struct StatefulList<S3Result> {
     state: ListState,
@@ -212,44 +218,43 @@ pub fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut app: App,
     tick_rate: Duration,
-) -> io::Result<()> {
-    let mut last_tick = Instant::now();
+) -> eyre::Result<()> {
+    let events = Events::new(tick_rate);
+
     loop {
         terminal.draw(|f| ui(f, &mut app))?;
+        if crossterm::event::poll(tick_rate).unwrap() {
+            let result = events.next();
+            match result {
+                Ok(key) => {
+                    match app.is_in_edit_mode {
+                        false => match key.code {
+                            KeyCode::Enter => app.items.refresh(),
+                            KeyCode::Left => app.items.goback(),
+                            KeyCode::Esc => Ok(app.items.unselect()),
+                            KeyCode::Down => Ok(app.items.next()),
+                            KeyCode::Up => Ok(app.items.previous()),
+                            KeyCode::Char('c') => Ok(app.items.copy()),
+                            KeyCode::Char('e') => Ok(app.is_in_edit_mode = true),
+                            KeyCode::Char('r') => app.items.reset(),
+                            KeyCode::Char('q') => {
+                                return Ok(());
+                            }
+                            _ => Ok(()),
+                        },
 
-        let timeout = tick_rate
-            .checked_sub(last_tick.elapsed())
-            .unwrap_or_else(|| Duration::from_secs(0));
-        if crossterm::event::poll(timeout).expect("Some error message") {
-            if let Event::Key(key) = event::read().expect("Some error message") {
-                // TODO: see if I can get rid of all this Ok() bullshit
-                match app.is_in_edit_mode {
-                    false => match key.code {
-                        KeyCode::Enter => app.items.refresh(),
-                        KeyCode::Left => app.items.goback(),
-                        KeyCode::Esc => Ok(app.items.unselect()),
-                        KeyCode::Down => Ok(app.items.next()),
-                        KeyCode::Up => Ok(app.items.previous()),
-                        KeyCode::Char('c') => Ok(app.items.copy()),
-                        KeyCode::Char('e') => Ok(app.is_in_edit_mode = true),
-                        KeyCode::Char('r') => app.items.reset(),
-                        KeyCode::Char('q') => {
-                            return Ok(());
-                        }
-                        _ => Ok(()),
-                    },
-
-                    true => match key.code {
-                        KeyCode::Backspace => app.delete_from_search(),
-                        KeyCode::Char(c) => app.append_to_search(c),
-                        KeyCode::Esc => Ok(app.is_in_edit_mode = false),
-                        KeyCode::Down => Ok(app.is_in_edit_mode = false),
-                        KeyCode::Enter => app.filter_for_search(),
-                        // TODO: add filter functionality based on Enter
-                        _ => Ok(()),
-                    },
-                };
-            };
+                        true => match key.code {
+                            KeyCode::Backspace => app.delete_from_search(),
+                            KeyCode::Char(c) => app.append_to_search(c),
+                            KeyCode::Esc => Ok(app.is_in_edit_mode = false),
+                            KeyCode::Down => Ok(app.is_in_edit_mode = false),
+                            KeyCode::Enter => app.filter_for_search(),
+                            _ => Ok(()),
+                        },
+                    };
+                }
+                Err(err) => (),
+            }
         }
     }
 }

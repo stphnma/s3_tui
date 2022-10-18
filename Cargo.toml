@@ -14,3 +14,4 @@ tui = { version = "0.15", features = ["crossterm"], default-features = false }
 crossterm = "0.19"
 clipboard = "0.5.0"
 clap = { version = "4.0.13", features = ["derive"] }
+eyre = "0.6"
