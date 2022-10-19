@@ -223,38 +223,35 @@ pub fn run_app<B: Backend>(
 
     loop {
         terminal.draw(|f| ui(f, &mut app))?;
-        if crossterm::event::poll(tick_rate).unwrap() {
-            let result = events.next();
-            match result {
-                Ok(key) => {
-                    match app.is_in_edit_mode {
-                        false => match key.code {
-                            KeyCode::Enter => app.items.refresh(),
-                            KeyCode::Left => app.items.goback(),
-                            KeyCode::Esc => Ok(app.items.unselect()),
-                            KeyCode::Down => Ok(app.items.next()),
-                            KeyCode::Up => Ok(app.items.previous()),
-                            KeyCode::Char('c') => Ok(app.items.copy()),
-                            KeyCode::Char('e') => Ok(app.is_in_edit_mode = true),
-                            KeyCode::Char('r') => app.items.reset(),
-                            KeyCode::Char('q') => {
-                                return Ok(());
-                            }
-                            _ => Ok(()),
-                        },
+        match events.next() {
+            Ok(key) => {
+                match app.is_in_edit_mode {
+                    false => match key.code {
+                        KeyCode::Enter => app.items.refresh(),
+                        KeyCode::Left => app.items.goback(),
+                        KeyCode::Esc => Ok(app.items.unselect()),
+                        KeyCode::Down => Ok(app.items.next()),
+                        KeyCode::Up => Ok(app.items.previous()),
+                        KeyCode::Char('c') => Ok(app.items.copy()),
+                        KeyCode::Char('e') => Ok(app.is_in_edit_mode = true),
+                        KeyCode::Char('r') => app.items.reset(),
+                        KeyCode::Char('q') => {
+                            return Ok(());
+                        }
+                        _ => Ok(()),
+                    },
 
-                        true => match key.code {
-                            KeyCode::Backspace => app.delete_from_search(),
-                            KeyCode::Char(c) => app.append_to_search(c),
-                            KeyCode::Esc => Ok(app.is_in_edit_mode = false),
-                            KeyCode::Down => Ok(app.is_in_edit_mode = false),
-                            KeyCode::Enter => app.filter_for_search(),
-                            _ => Ok(()),
-                        },
-                    };
-                }
-                Err(err) => (),
+                    true => match key.code {
+                        KeyCode::Backspace => app.delete_from_search(),
+                        KeyCode::Char(c) => app.append_to_search(c),
+                        KeyCode::Esc => Ok(app.is_in_edit_mode = false),
+                        KeyCode::Down => Ok(app.is_in_edit_mode = false),
+                        KeyCode::Enter => app.filter_for_search(),
+                        _ => Ok(()),
+                    },
+                };
             }
+            Err(err) => (),
         }
     }
 }

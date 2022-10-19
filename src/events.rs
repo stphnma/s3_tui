@@ -1,5 +1,5 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
-use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{channel, Receiver, RecvError, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
 
@@ -27,7 +27,7 @@ impl Events {
 
     /// Attempts to read an event.
     /// This function block the current thread.
-    pub fn next(&self) -> Result<KeyEvent, TryRecvError> {
-        self.rx.try_recv()
+    pub fn next(&self) -> Result<KeyEvent, RecvError> {
+        self.rx.recv()
     }
 }
