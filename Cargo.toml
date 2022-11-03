@@ -1,5 +1,5 @@
 [package]
-name = "hello_aws"
+name = "s3_tui"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,6 +9,7 @@ edition = "2021"
 aws-config = "0.47.0"
 aws-sdk-s3 = "0.17.0"
 aws-sdk-dynamodb = "0.17.0"
+aws-smithy-types = "0.47.0"
 tokio = {version = "1", features=["full"]}
 tui = { version = "0.15", features = ["crossterm"], default-features = false }
 crossterm = "0.19"

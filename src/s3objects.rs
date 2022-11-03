@@ -1,5 +1,6 @@
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3 as s3;
+use aws_smithy_types;
 
 pub struct S3Result {
     pub path: String,
@@ -7,10 +8,11 @@ pub struct S3Result {
     pub size: i64,
     pub is_directory: bool,
     pub is_matched: bool,
+    pub last_modified: String,
 }
 
 impl S3Result {
-    fn new(path: String, size: i64) -> S3Result {
+    fn new(path: String, size: i64, last_modified: Option<s3::types::DateTime>) -> S3Result {
         let path_parts = path.split("/").collect::<Vec<&str>>();
         let is_directory = match path.chars().last().unwrap() {
             '/' => true,
@@ -24,12 +26,20 @@ impl S3Result {
             false => path_parts.last().unwrap().to_string(),
         };
 
+        let format = aws_smithy_types::date_time::Format::DateTime;
+
+        let date_str = match last_modified {
+            None => "_".to_string(),
+            Some(date) => date.fmt(format).unwrap(),
+        };
+
         S3Result {
             path: path.clone(),
             size: size,
             label: label,
             is_directory: is_directory,
             is_matched: true,
+            last_modified: date_str,
         }
     }
 }
@@ -51,10 +61,14 @@ async fn get_results(
     let mut result: Vec<S3Result> = Vec::new();
 
     for obj in objects.common_prefixes().unwrap_or_default() {
-        result.push(S3Result::new(String::from(obj.prefix().unwrap()), 0));
+        result.push(S3Result::new(String::from(obj.prefix().unwrap()), 0, None));
     }
     for obj in objects.contents().unwrap_or_default() {
-        result.push(S3Result::new(String::from(obj.key().unwrap()), obj.size()));
+        result.push(S3Result::new(
+            String::from(obj.key().unwrap()),
+            obj.size(),
+            Some(*obj.last_modified().unwrap()),
+        ));
     }
     return Ok(result);
 }

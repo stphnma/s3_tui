@@ -1,5 +1,5 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
-use std::sync::mpsc::{channel, Receiver, RecvError, Sender, TryRecvError};
+use std::sync::mpsc::{channel, Receiver, RecvError, Sender};
 use std::thread;
 use std::time::Duration;
 
