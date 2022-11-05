@@ -3,7 +3,6 @@ use clipboard::ClipboardContext;
 use clipboard::ClipboardProvider;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use eyre;
-use pretty_bytes::converter::convert;
 use s3objects::{get_objects, S3Result};
 use std::sync::mpsc::TryRecvError;
 use std::{
@@ -309,9 +308,14 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     // Create a List from all list items and highlight the currently selected one
     // let mut items = Table::new(items); //.block(Block::default().borders(Borders::ALL).title(title));
 
-    let mut items = Table::new(items)
+    let mut table = Table::new(items)
         .style(Style::default().fg(Color::White))
-        .block(Block::default())
+        .header(
+            Row::new(vec!["Path", "Last Modified", "Size"])
+                .style(Style::default().fg(Color::Yellow))
+                .bottom_margin(1),
+        )
+        .block(Block::default().title(title))
         .widths(&[
             Constraint::Length(50),
             Constraint::Length(15),
@@ -320,7 +324,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .column_spacing(10);
 
     if !app.is_in_edit_mode {
-        items = items
+        table = table
             .highlight_style(
                 Style::default()
                     .bg(Color::LightGreen)
@@ -330,5 +334,5 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     }
 
     // We can now render the item list
-    f.render_stateful_widget(items, chunks[1], &mut app.items.state);
+    f.render_stateful_widget(table, chunks[1], &mut app.items.state);
 }
