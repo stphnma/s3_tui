@@ -11,7 +11,7 @@ mod s3objects;
 
 // mod app;
 // use app::{run_app, App};
-use hello_aws::{run_app, App};
+use s3_tui::{run_app, App};
 
 use clap::Parser;
 

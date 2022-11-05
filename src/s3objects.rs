@@ -29,7 +29,7 @@ impl S3Result {
         let format = aws_smithy_types::date_time::Format::DateTime;
 
         let date_str = match last_modified {
-            None => "_".to_string(),
+            None => "/".to_string(),
             Some(date) => date.fmt(format).unwrap(),
         };
 

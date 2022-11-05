@@ -3,6 +3,7 @@ use clipboard::ClipboardContext;
 use clipboard::ClipboardProvider;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use eyre;
+use pretty_bytes::converter::convert;
 use s3objects::{get_objects, S3Result};
 use std::sync::mpsc::TryRecvError;
 use std::{
@@ -14,15 +15,15 @@ use tui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::Text,
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, TableState},
     Frame, Terminal,
 };
-
 mod events;
 use events::Events;
 
 struct StatefulList<S3Result> {
-    state: ListState,
+    //state: ListState,
+    state: TableState,
     items: Vec<S3Result>,
     num_items_to_display: usize,
     bucket: String,
@@ -55,7 +56,8 @@ impl StatefulList<S3Result> {
         let prev_path = parse_prev_path(path);
 
         Ok(StatefulList {
-            state: ListState::default(),
+            state: TableState::default(),
+            // state: ListState::default(),
             num_items_to_display: items.len(),
             items: items,
             bucket: String::from(bucket_name),
@@ -256,6 +258,14 @@ pub fn run_app<B: Backend>(
     }
 }
 
+fn fmt_size(size: i64) -> String {
+    if size == 0 {
+        return "/".to_string();
+    } else {
+        return size.to_string();
+    }
+}
+
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -272,17 +282,42 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     f.render_widget(search, chunks[0]);
 
-    let items: Vec<ListItem> = app
+    // let items: Vec<ListItem> = app
+    //     .items
+    //     .items
+    //     .iter()
+    //     .filter(|res| res.is_matched)
+    //     .map(|res| ListItem::new(Text::from(res.label.as_str())).style(Style::default()))
+    //     .collect();
+
+    let items: Vec<Row> = app
         .items
         .items
         .iter()
         .filter(|res| res.is_matched)
-        .map(|res| ListItem::new(Text::from(res.label.as_str())).style(Style::default()))
+        .map(|res| {
+            Row::new(vec![
+                res.label.to_string(),
+                res.last_modified.to_string(),
+                //res.size.to_string(),
+                fmt_size(res.size),
+            ])
+        })
         .collect();
 
     let title = app.items.current_path.to_string();
     // Create a List from all list items and highlight the currently selected one
-    let mut items = List::new(items).block(Block::default().borders(Borders::ALL).title(title));
+    // let mut items = Table::new(items); //.block(Block::default().borders(Borders::ALL).title(title));
+
+    let mut items = Table::new(items)
+        .style(Style::default().fg(Color::White))
+        .block(Block::default())
+        .widths(&[
+            Constraint::Length(50),
+            Constraint::Length(15),
+            Constraint::Length(5),
+        ])
+        .column_spacing(10);
 
     if !app.is_in_edit_mode {
         items = items
