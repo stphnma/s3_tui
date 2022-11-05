@@ -1,3 +1,5 @@
+// TODO: Add some documentation here
+
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
@@ -9,8 +11,6 @@ use std::{env, io, time::Duration};
 
 mod s3objects;
 
-// mod app;
-// use app::{run_app, App};
 use s3_tui::{run_app, App};
 
 use clap::Parser;

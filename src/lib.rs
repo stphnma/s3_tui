@@ -21,7 +21,6 @@ mod events;
 use events::Events;
 
 struct StatefulList<S3Result> {
-    //state: ListState,
     state: TableState,
     items: Vec<S3Result>,
     num_items_to_display: usize,
@@ -56,7 +55,6 @@ impl StatefulList<S3Result> {
 
         Ok(StatefulList {
             state: TableState::default(),
-            // state: ListState::default(),
             num_items_to_display: items.len(),
             items: items,
             bucket: String::from(bucket_name),
@@ -281,14 +279,6 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     f.render_widget(search, chunks[0]);
 
-    // let items: Vec<ListItem> = app
-    //     .items
-    //     .items
-    //     .iter()
-    //     .filter(|res| res.is_matched)
-    //     .map(|res| ListItem::new(Text::from(res.label.as_str())).style(Style::default()))
-    //     .collect();
-
     let items: Vec<Row> = app
         .items
         .items
@@ -298,15 +288,12 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             Row::new(vec![
                 res.label.to_string(),
                 res.last_modified.to_string(),
-                //res.size.to_string(),
                 fmt_size(res.size),
             ])
         })
         .collect();
 
     let title = app.items.current_path.to_string();
-    // Create a List from all list items and highlight the currently selected one
-    // let mut items = Table::new(items); //.block(Block::default().borders(Borders::ALL).title(title));
 
     let mut table = Table::new(items)
         .style(Style::default().fg(Color::White))
@@ -333,6 +320,5 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             .highlight_symbol(">> ");
     }
 
-    // We can now render the item list
     f.render_stateful_widget(table, chunks[1], &mut app.items.state);
 }

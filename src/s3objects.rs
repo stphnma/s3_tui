@@ -53,7 +53,6 @@ async fn get_results(
         .list_objects_v2()
         .bucket(bucket_name)
         .prefix(prefix)
-        //.max_keys(200)
         .delimiter("/")
         .send()
         .await?;
@@ -74,6 +73,7 @@ async fn get_results(
 }
 
 pub async fn get_objects(bucket_name: &str, path: &str) -> Result<Vec<S3Result>, s3::Error> {
+    // TODO: make region more flexible / read from standard AWS sources
     let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
     let config = aws_config::from_env().region(region_provider).load().await;
     let client = s3::Client::new(&config);
