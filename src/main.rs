@@ -21,13 +21,13 @@ struct Args {
     #[arg(short, long)]
     bucket: String,
     #[arg(short, long)]
-    prefix: String,
+    prefix: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let app = App::new(&args.bucket, &args.prefix);
+    let app = App::new(args.bucket, args.prefix);
     let tick_rate = Duration::from_millis(250);
 
     enable_raw_mode()?;

@@ -19,6 +19,7 @@ use tui::{
 };
 mod events;
 use events::Events;
+use std::path::Path;
 
 struct StatefulList<S3Result> {
     state: TableState,
@@ -32,23 +33,28 @@ struct StatefulList<S3Result> {
 }
 
 fn parse_prev_path(path: &str) -> String {
-    let path_parts = path.split("/").collect::<Vec<&str>>();
-
-    if path_parts.len() >= 2 {
-        return path_parts[0..path_parts.len() - 2].join("/").to_string() + "/";
-    } else {
-        return "".to_string();
-    }
+    return match Path::new(path).parent() {
+        Some(p) => match p.to_str().unwrap() {
+            "" => "".to_string(),
+            other => other.to_string() + "/",
+        },
+        None => String::from(path),
+    };
 }
 
 impl StatefulList<S3Result> {
     fn from_path(
         bucket_name: &str,
-        path: &str,
+        path: &Option<String>,
     ) -> Result<StatefulList<S3Result>, Box<dyn std::error::Error>> {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
+
+        let path = match path {
+            Some(p) => p,
+            None => "",
+        };
 
         let items = rt.block_on(get_objects(bucket_name, path))?;
         let prev_path = parse_prev_path(path);
@@ -66,24 +72,26 @@ impl StatefulList<S3Result> {
     }
 
     fn copy(&mut self) {
-        let i = self.state.selected().unwrap();
+        let i = match self.state.selected() {
+            Some(i) => {
+                let selected_item = self
+                    .items
+                    .iter()
+                    .filter(|res| res.is_matched)
+                    .nth(i)
+                    .unwrap();
+                let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+                let uri = [
+                    "s3:/".to_string(),
+                    self.bucket.to_string(),
+                    selected_item.path.to_string(),
+                ]
+                .join("/");
 
-        let selected_item = self
-            .items
-            .iter()
-            .filter(|res| res.is_matched)
-            .nth(i)
-            .unwrap();
-
-        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-        let uri = [
-            "s3:/".to_string(),
-            self.bucket.to_string(),
-            selected_item.path.to_string(),
-        ]
-        .join("/");
-
-        ctx.set_contents(uri.to_owned()).unwrap();
+                ctx.set_contents(uri.to_owned()).unwrap();
+            }
+            None => return,
+        };
     }
 
     fn next(&mut self) {
@@ -152,7 +160,7 @@ impl StatefulList<S3Result> {
         // reset items
         self.items = self
             .rt
-            .block_on(get_objects(&self.bucket, &self.prev_path))?;
+            .block_on(get_objects(&self.bucket, &self.current_path))?;
         self.num_items_to_display = self.items.len();
 
         self.unselect();
@@ -179,9 +187,9 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(bucket: &str, path: &str) -> App {
+    pub fn new(bucket: String, path: Option<String>) -> App {
         App {
-            items: StatefulList::from_path(bucket, path).unwrap(),
+            items: StatefulList::from_path(&bucket, &path).unwrap(),
             is_in_edit_mode: false,
             search_input: "".to_string(),
         }
@@ -224,6 +232,7 @@ pub fn run_app<B: Backend>(
         terminal.draw(|f| ui(f, &mut app))?;
         match events.next() {
             Ok(key) => {
+                // TODO: Add sort mode
                 match app.is_in_edit_mode {
                     false => match key.code {
                         KeyCode::Enter => app.items.refresh(),
@@ -259,6 +268,7 @@ fn fmt_size(size: i64) -> String {
     if size == 0 {
         return "/".to_string();
     } else {
+        // TODO: Make this more human readable
         return size.to_string();
     }
 }
@@ -293,7 +303,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         })
         .collect();
 
-    let title = app.items.current_path.to_string();
+    let path = app.items.current_path.to_string();
 
     let mut table = Table::new(items)
         .style(Style::default().fg(Color::White))
@@ -302,7 +312,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 .style(Style::default().fg(Color::Yellow))
                 .bottom_margin(1),
         )
-        .block(Block::default().title(title))
+        .block(Block::default().title(path))
         .widths(&[
             Constraint::Length(50),
             Constraint::Length(15),
