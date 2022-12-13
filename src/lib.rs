@@ -1,21 +1,19 @@
 mod s3objects;
 use clipboard::ClipboardContext;
 use clipboard::ClipboardProvider;
-use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::event::{ self, Event, KeyCode, KeyEvent };
 use eyre;
-use s3objects::{get_objects, S3Result};
+use s3objects::{ get_objects, S3Result };
 use std::sync::mpsc::TryRecvError;
-use std::{
-    env, io,
-    time::{Duration, Instant},
-};
+use std::{ env, io, time::{ Duration, Instant } };
 use tui::{
     backend::Backend,
-    layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    layout::{ Constraint, Direction, Layout },
+    style::{ Color, Modifier, Style },
     text::Text,
-    widgets::{Block, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, TableState},
-    Frame, Terminal,
+    widgets::{ Block, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, TableState },
+    Frame,
+    Terminal,
 };
 mod events;
 use events::Events;
@@ -34,10 +32,11 @@ struct StatefulList<S3Result> {
 
 fn parse_prev_path(path: &str) -> String {
     return match Path::new(path).parent() {
-        Some(p) => match p.to_str().unwrap() {
-            "" => "".to_string(),
-            other => other.to_string() + "/",
-        },
+        Some(p) =>
+            match p.to_str().unwrap() {
+                "" => "".to_string(),
+                other => other.to_string() + "/",
+            }
         None => String::from(path),
     };
 }
@@ -45,11 +44,9 @@ fn parse_prev_path(path: &str) -> String {
 impl StatefulList<S3Result> {
     fn from_path(
         bucket_name: &str,
-        path: &Option<String>,
+        path: &Option<String>
     ) -> Result<StatefulList<S3Result>, Box<dyn std::error::Error>> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
 
         let path = match path {
             Some(p) => p,
@@ -74,8 +71,7 @@ impl StatefulList<S3Result> {
     fn copy(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                let selected_item = self
-                    .items
+                let selected_item = self.items
                     .iter()
                     .filter(|res| res.is_matched)
                     .nth(i)
@@ -85,23 +81,20 @@ impl StatefulList<S3Result> {
                     "s3:/".to_string(),
                     self.bucket.to_string(),
                     selected_item.path.to_string(),
-                ]
-                .join("/");
+                ].join("/");
 
                 ctx.set_contents(uri.to_owned()).unwrap();
             }
-            None => return,
+            None => {
+                return;
+            }
         };
     }
 
     fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if i >= self.num_items_to_display - 1 {
-                    0
-                } else {
-                    i + 1
-                }
+                if i >= self.num_items_to_display - 1 { 0 } else { i + 1 }
             }
             None => 0,
         };
@@ -109,17 +102,20 @@ impl StatefulList<S3Result> {
     }
 
     fn previous(&mut self) {
-        let i = match self.state.selected() {
+       let j = match self.state.selected() {
             Some(i) => {
-                if i == 0 {
-                    self.num_items_to_display - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
+                let pos = match i {
+                    0 => self.num_items_to_display - 1,
+                    other => other - 1,
+                };
+                // if i == 0 { self.num_items_to_display - 1 } else { i - 1 }
+                self.state.select(Some(pos))
+            },
+            None => {
+                self.state.select(None)
+            },
         };
-        self.state.select(Some(i));
+        
     }
 
     fn unselect(&mut self) {
@@ -127,28 +123,37 @@ impl StatefulList<S3Result> {
     }
 
     fn refresh(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let i = self.state.selected().unwrap();
+        // Loads the path that the cursor is currently on
+        match self.state.selected() {
+            Some(i) => {
+                let selected_item = self.items
+                    .iter()
+                    .filter(|res| res.is_matched)
+                    .nth(i);
+                
+                match selected_item {
+                    Some(s) => {
+                        if s.is_directory {
+                            // reset paths
+                            self.prev_path = self.current_path.clone();
+                            self.current_path = String::from(&s.path);
+        
+                            // reset items
+                            let new_items = self.rt.block_on(
+                                get_objects(&self.bucket, &s.path)
+                            )?;
+                            self.num_items_to_display = new_items.len();
+                            self.items = new_items;
+                            self.unselect();
+                        }
+        
+                    },
+                    None => ()
+                };
+            },
+            None => (),
+        };
 
-        let selected_item = self
-            .items
-            .iter()
-            .filter(|res| res.is_matched)
-            .nth(i)
-            .unwrap();
-
-        if selected_item.is_directory {
-            // reset paths
-            self.prev_path = self.current_path.clone();
-            self.current_path = String::from(&selected_item.path);
-
-            // reset items
-            let new_items = self
-                .rt
-                .block_on(get_objects(&self.bucket, &selected_item.path))?;
-            self.num_items_to_display = new_items.len();
-            self.items = new_items;
-            self.unselect();
-        }
         Ok(())
     }
 
@@ -158,9 +163,7 @@ impl StatefulList<S3Result> {
         self.prev_path = parse_prev_path(&self.current_path);
 
         // reset items
-        self.items = self
-            .rt
-            .block_on(get_objects(&self.bucket, &self.current_path))?;
+        self.items = self.rt.block_on(get_objects(&self.bucket, &self.current_path))?;
         self.num_items_to_display = self.items.len();
 
         self.unselect();
@@ -170,9 +173,7 @@ impl StatefulList<S3Result> {
     fn reset(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.current_path = self.root_path.clone();
         self.prev_path = parse_prev_path(&self.current_path);
-        self.items = self
-            .rt
-            .block_on(get_objects(&self.bucket, &self.current_path))?;
+        self.items = self.rt.block_on(get_objects(&self.bucket, &self.current_path))?;
         self.num_items_to_display = self.items.len();
         self.unselect();
 
@@ -206,14 +207,10 @@ impl App {
 
     fn filter_for_search(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         for item in &mut self.items.items {
-            if item
-                .label
-                .to_lowercase()
-                .contains(&self.search_input.to_lowercase())
-            {
-                item.is_matched = true
+            if item.label.to_lowercase().contains(&self.search_input.to_lowercase()) {
+                item.is_matched = true;
             } else {
-                item.is_matched = false
+                item.is_matched = false;
             }
         }
 
@@ -224,7 +221,7 @@ impl App {
 pub fn run_app<B: Backend>(
     terminal: &mut Terminal<B>,
     mut app: App,
-    tick_rate: Duration,
+    tick_rate: Duration
 ) -> eyre::Result<()> {
     let events = Events::new(tick_rate);
 
@@ -234,33 +231,44 @@ pub fn run_app<B: Backend>(
             Ok(key) => {
                 // TODO: Add sort mode
                 match app.is_in_edit_mode {
-                    false => match key.code {
-                        KeyCode::Enter => app.items.refresh(),
-                        KeyCode::Left => app.items.goback(),
-                        KeyCode::Esc => Ok(app.items.unselect()),
-                        KeyCode::Down => Ok(app.items.next()),
-                        KeyCode::Up => Ok(app.items.previous()),
-                        KeyCode::Char('c') => Ok(app.items.copy()),
-                        KeyCode::Char('e') => Ok(app.is_in_edit_mode = true),
-                        KeyCode::Char('r') => app.items.reset(),
-                        KeyCode::Char('q') => {
-                            return Ok(());
+                    false =>
+                        match key.code {
+                            KeyCode::Enter => app.items.refresh(),
+                            KeyCode::Left => app.items.goback(),
+                            KeyCode::Esc => Ok(app.items.unselect()),
+                            KeyCode::Down => Ok(app.items.next()),
+                            KeyCode::Up => Ok(app.items.previous()),
+                            KeyCode::Char('c') => Ok(app.items.copy()),
+                            KeyCode::Char('e') =>
+                                Ok({
+                                    app.is_in_edit_mode = true;
+                                }),
+                            KeyCode::Char('r') => app.items.reset(),
+                            KeyCode::Char('q') => {
+                                return Ok(());
+                            }
+                            _ => Ok(()),
                         }
-                        _ => Ok(()),
-                    },
 
-                    true => match key.code {
-                        KeyCode::Backspace => app.delete_from_search(),
-                        KeyCode::Char(c) => app.append_to_search(c),
-                        KeyCode::Esc => Ok(app.is_in_edit_mode = false),
-                        KeyCode::Down => Ok(app.is_in_edit_mode = false),
-                        KeyCode::Enter => app.filter_for_search(),
-                        _ => Ok(()),
-                    },
+                    true =>
+                        match key.code {
+                            KeyCode::Backspace => app.delete_from_search(),
+                            KeyCode::Char(c) => app.append_to_search(c),
+                            KeyCode::Esc =>
+                                Ok({
+                                    app.is_in_edit_mode = false;
+                                }),
+                            KeyCode::Down =>
+                                Ok({
+                                    app.is_in_edit_mode = false;
+                                }),
+                            KeyCode::Enter => app.filter_for_search(),
+                            _ => Ok(()),
+                        }
                 };
             }
             Err(err) => (),
-        }
+        };
     }
 }
 
@@ -289,17 +297,11 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     f.render_widget(search, chunks[0]);
 
-    let items: Vec<Row> = app
-        .items
-        .items
+    let items: Vec<Row> = app.items.items
         .iter()
         .filter(|res| res.is_matched)
         .map(|res| {
-            Row::new(vec![
-                res.label.to_string(),
-                res.last_modified.to_string(),
-                fmt_size(res.size),
-            ])
+            Row::new(vec![res.label.to_string(), res.last_modified.to_string(), fmt_size(res.size)])
         })
         .collect();
 
@@ -310,23 +312,15 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .header(
             Row::new(vec!["Path", "Last Modified", "Size"])
                 .style(Style::default().fg(Color::Yellow))
-                .bottom_margin(1),
+                .bottom_margin(1)
         )
         .block(Block::default().title(path))
-        .widths(&[
-            Constraint::Length(50),
-            Constraint::Length(15),
-            Constraint::Length(5),
-        ])
+        .widths(&[Constraint::Length(50), Constraint::Length(15), Constraint::Length(5)])
         .column_spacing(10);
 
     if !app.is_in_edit_mode {
         table = table
-            .highlight_style(
-                Style::default()
-                    .bg(Color::LightGreen)
-                    .add_modifier(Modifier::BOLD),
-            )
+            .highlight_style(Style::default().bg(Color::LightGreen).add_modifier(Modifier::BOLD))
             .highlight_symbol(">> ");
     }
 
