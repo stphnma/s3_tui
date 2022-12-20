@@ -7,7 +7,7 @@ use crossterm::{
 };
 use tui::{backend::CrosstermBackend, Terminal};
 
-use std::{env, io, time::Duration};
+use std::{io, time::Duration};
 
 mod s3objects;
 

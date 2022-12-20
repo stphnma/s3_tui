@@ -4,14 +4,12 @@ use clipboard::ClipboardProvider;
 use crossterm::event::{ self, Event, KeyCode, KeyEvent };
 use eyre;
 use s3objects::{ get_objects, S3Result };
-use std::sync::mpsc::TryRecvError;
-use std::{ env, io, time::{ Duration, Instant } };
+use std::{ time::{ Duration } };
 use tui::{
     backend::Backend,
     layout::{ Constraint, Direction, Layout },
     style::{ Color, Modifier, Style },
-    text::Text,
-    widgets::{ Block, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, TableState },
+    widgets::{ Block, Borders, Paragraph, Row, Table, TableState },
     Frame,
     Terminal,
 };
