@@ -11,7 +11,7 @@ use std::{io, time::Duration};
 
 mod app;
 use app::app::App;
-use app::ui::ui;
+use app::ui::run_app;
 mod events;
 use events::Events;
 mod s3objects;
@@ -28,59 +28,7 @@ struct Args {
 }
 
 
-pub fn run_app<B: Backend>(
-    terminal: &mut Terminal<B>,
-    mut app: App,
-    tick_rate: Duration
-) -> eyre::Result<()> {
-    let events = Events::new(tick_rate);
 
-    loop {
-        terminal.draw(|f| ui(f, &mut app))?;
-        match events.next() {
-            Ok(key) => {
-                // TODO: Add sort mode
-                match app.is_in_filter_mode {
-                    false =>
-                        match key.code {
-                            KeyCode::Enter => app.items.refresh(),
-                            KeyCode::Left => app.items.goback(),
-                            KeyCode::Esc => Ok(app.items.unselect()),
-                            KeyCode::Down => Ok(app.items.next()),
-                            KeyCode::Up => Ok(app.items.previous()),
-                            KeyCode::Char('c') => Ok(app.items.copy()),
-                            KeyCode::Char('e') =>
-                                Ok({
-                                    app.is_in_filter_mode = true;
-                                }),
-                            KeyCode::Char('r') => app.items.reset(),
-                            KeyCode::Char('q') => {
-                                return Ok(());
-                            }
-                            _ => Ok(()),
-                        }
-
-                    true =>
-                        match key.code {
-                            KeyCode::Backspace => app.delete_from_search(),
-                            KeyCode::Char(c) => app.append_to_search(c),
-                            KeyCode::Esc =>
-                                Ok({
-                                    app.is_in_filter_mode = false;
-                                }),
-                            KeyCode::Down =>
-                                Ok({
-                                    app.is_in_filter_mode = false;
-                                }),
-                            KeyCode::Enter => app.filter_for_search(),
-                            _ => Ok(()),
-                        }
-                };
-            }
-            Err(err) => (),
-        };
-    }
-}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
