@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event, KeyEvent};
+use crossterm::event::{self, KeyEvent};
 use std::sync::mpsc::{channel, Receiver, RecvError, Sender};
 use std::thread;
 use std::time::Duration;
