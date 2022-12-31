@@ -1,4 +1,4 @@
-use crate::s3objects::{ get_objects, S3Result };
+use crate::s3objects::{get_objects, S3Result};
 use clipboard::{ClipboardContext, ClipboardProvider};
 use std::path::Path;
 use tui::widgets::TableState;
@@ -16,11 +16,10 @@ pub struct StatefulList<S3Result> {
 
 fn parse_prev_path(path: &str) -> String {
     return match Path::new(path).parent() {
-        Some(p) =>
-            match p.to_str().unwrap() {
-                "" => "".to_string(),
-                other => other.to_string() + "/",
-            }
+        Some(p) => match p.to_str().unwrap() {
+            "" => "".to_string(),
+            other => other.to_string() + "/",
+        },
         None => String::from(path),
     };
 }
@@ -28,9 +27,11 @@ fn parse_prev_path(path: &str) -> String {
 impl StatefulList<S3Result> {
     fn from_path(
         bucket_name: &str,
-        path: &Option<String>
+        path: &Option<String>,
     ) -> Result<StatefulList<S3Result>, Box<dyn std::error::Error>> {
-        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
 
         let path = match path {
             Some(p) => p,
@@ -55,7 +56,8 @@ impl StatefulList<S3Result> {
     pub fn copy(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                let selected_item = self.items
+                let selected_item = self
+                    .items
                     .iter()
                     .filter(|res| res.is_matched)
                     .nth(i)
@@ -65,7 +67,8 @@ impl StatefulList<S3Result> {
                     "s3:/".to_string(),
                     self.bucket.to_string(),
                     selected_item.path.to_string(),
-                ].join("/");
+                ]
+                .join("/");
 
                 ctx.set_contents(uri.to_owned()).unwrap();
             }
@@ -78,7 +81,11 @@ impl StatefulList<S3Result> {
     pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if i >= self.num_items_to_display - 1 { 0 } else { i + 1 }
+                if i >= self.num_items_to_display - 1 {
+                    0
+                } else {
+                    i + 1
+                }
             }
             None => 0,
         };
@@ -86,7 +93,7 @@ impl StatefulList<S3Result> {
     }
 
     pub fn previous(&mut self) {
-       let j = match self.state.selected() {
+        let j = match self.state.selected() {
             Some(i) => {
                 let pos = match i {
                     0 => self.num_items_to_display - 1,
@@ -94,12 +101,9 @@ impl StatefulList<S3Result> {
                 };
                 // if i == 0 { self.num_items_to_display - 1 } else { i - 1 }
                 self.state.select(Some(pos))
-            },
-            None => {
-                self.state.select(None)
-            },
+            }
+            None => self.state.select(None),
         };
-        
     }
 
     pub fn unselect(&mut self) {
@@ -110,31 +114,25 @@ impl StatefulList<S3Result> {
         // Loads the path that the cursor is currently on
         match self.state.selected() {
             Some(i) => {
-                let selected_item = self.items
-                    .iter()
-                    .filter(|res| res.is_matched)
-                    .nth(i);
-                
+                let selected_item = self.items.iter().filter(|res| res.is_matched).nth(i);
+
                 match selected_item {
                     Some(s) => {
                         if s.is_directory {
                             // reset paths
                             self.prev_path = self.current_path.clone();
                             self.current_path = String::from(&s.path);
-        
+
                             // reset items
-                            let new_items = self.rt.block_on(
-                                get_objects(&self.bucket, &s.path)
-                            )?;
+                            let new_items = self.rt.block_on(get_objects(&self.bucket, &s.path))?;
                             self.num_items_to_display = new_items.len();
                             self.items = new_items;
                             self.unselect();
                         }
-        
-                    },
-                    None => ()
+                    }
+                    None => (),
                 };
-            },
+            }
             None => (),
         };
 
@@ -147,7 +145,9 @@ impl StatefulList<S3Result> {
         self.prev_path = parse_prev_path(&self.current_path);
 
         // reset items
-        self.items = self.rt.block_on(get_objects(&self.bucket, &self.current_path))?;
+        self.items = self
+            .rt
+            .block_on(get_objects(&self.bucket, &self.current_path))?;
         self.num_items_to_display = self.items.len();
 
         self.unselect();
@@ -157,27 +157,67 @@ impl StatefulList<S3Result> {
     pub fn reset(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.current_path = self.root_path.clone();
         self.prev_path = parse_prev_path(&self.current_path);
-        self.items = self.rt.block_on(get_objects(&self.bucket, &self.current_path))?;
+        self.items = self
+            .rt
+            .block_on(get_objects(&self.bucket, &self.current_path))?;
         self.num_items_to_display = self.items.len();
         self.unselect();
 
         Ok(())
     }
+
+    pub fn sort_items(&mut self, key: &str, config: &mut SortConfig) {
+        let ascending: bool;
+
+        if key == config.sort_key {
+            ascending = !config.ascending;
+        } else {
+            ascending = true;
+        }
+
+        match key {
+            "path" => self.items.sort_by(|d1, d2| d1.path.cmp(&d2.path)),
+            "last_modified" => self
+                .items
+                .sort_by(|d1, d2| d1.last_modified.cmp(&d2.last_modified)),
+            _ => (),
+        };
+
+        if !ascending {
+            self.items.reverse();
+        };
+    }
 }
 
+pub struct SortConfig {
+    pub sort_key: String,
+    pub ascending: bool,
+}
+
+pub enum AppMode {
+    FilterMode,
+    SortMode,
+    RegularMode,
+}
 
 pub struct App {
     pub items: StatefulList<S3Result>,
-    pub is_in_filter_mode: bool,
+    pub mode: AppMode,
     pub search_input: String,
+    pub sort_config: SortConfig,
 }
 
 impl App {
     pub fn new(bucket: String, path: Option<String>) -> App {
         App {
             items: StatefulList::from_path(&bucket, &path).unwrap(),
-            is_in_filter_mode: false,
+            mode: AppMode::RegularMode,
             search_input: "".to_string(),
+            sort_config: SortConfig {
+                // default sorting from list_objects_v2
+                sort_key: "path".to_string(),
+                ascending: true,
+            },
         }
     }
 
@@ -192,7 +232,11 @@ impl App {
 
     pub fn filter_for_search(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         for item in &mut self.items.items {
-            if item.label.to_lowercase().contains(&self.search_input.to_lowercase()) {
+            if item
+                .label
+                .to_lowercase()
+                .contains(&self.search_input.to_lowercase())
+            {
                 item.is_matched = true;
             } else {
                 item.is_matched = false;

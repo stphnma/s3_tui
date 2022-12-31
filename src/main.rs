@@ -5,12 +5,14 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use tui::{backend::{CrosstermBackend, Backend}, Terminal};
 use eyre;
 use std::{io, time::Duration};
+use tui::{backend::CrosstermBackend, Terminal};
 
 mod app;
 use app::app::App;
+use app::app::AppMode;
+
 use app::ui::run_app;
 mod events;
 use events::Events;
@@ -26,9 +28,6 @@ struct Args {
     #[arg(short, long)]
     prefix: Option<String>,
 }
-
-
-
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
