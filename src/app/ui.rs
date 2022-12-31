@@ -39,21 +39,20 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let msg = match app.mode {
         AppMode::RegularMode => {
             vec![
-                Span::raw("Press "),
+                Span::raw("Use the arrow keys to navigate. Or press "),
+                Span::styled("f", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to filter "),
+                Span::styled("s", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to sort, or "),
                 Span::styled("q", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to exit, "),
-                Span::styled(
-                    "or use arrow keys",
-                    Style::default().add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(" to start selecting."),
+                Span::raw(" to exit."),
             ]
         }
         AppMode::FilterMode => {
             vec![
                 Span::raw("Filter Mode: Press "),
                 Span::styled("ESC", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to exit"),
+                Span::raw(" to exit filter mode"),
             ]
         }
         AppMode::SortMode => {
@@ -62,10 +61,10 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 Span::styled("d", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(" to sort by date (last_modified), or "),
                 Span::styled("p", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to sort by path, "),
+                Span::raw(" to sort by path. "),
                 Span::raw("Press "),
                 Span::styled("ESC", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to exit"),
+                Span::raw(" to exit sort mode"),
             ]
         }
     };
@@ -158,6 +157,7 @@ pub fn run_app<B: Backend>(
                 },
                 AppMode::RegularMode => match key.code {
                     KeyCode::Enter => app.items.refresh(),
+                    KeyCode::Right => app.items.refresh(),
                     KeyCode::Left => app.items.goback(),
                     KeyCode::Esc => Ok(app.items.unselect()),
                     KeyCode::Down => Ok(app.items.next()),

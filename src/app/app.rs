@@ -176,16 +176,22 @@ impl StatefulList<S3Result> {
         }
 
         match key {
-            "path" => self.items.sort_by(|d1, d2| d1.path.cmp(&d2.path)),
-            "last_modified" => self
-                .items
-                .sort_by(|d1, d2| d1.last_modified.cmp(&d2.last_modified)),
+            "path" => match ascending {
+                true => self.items.sort_by(|d1, d2| d1.path.cmp(&d2.path)),
+                false => self.items.sort_by(|d1, d2| d2.path.cmp(&d1.path)),
+            },
+            "last_modified" => match ascending {
+                true => self
+                    .items
+                    .sort_by(|d1, d2| d1.last_modified.cmp(&d2.last_modified)),
+                false => self
+                    .items
+                    .sort_by(|d1, d2| d2.last_modified.cmp(&d1.last_modified)),
+            },
             _ => (),
-        };
-
-        if !ascending {
-            self.items.reverse();
-        };
+        }
+        config.ascending = ascending.clone();
+        config.sort_key = key.to_string();
     }
 }
 
