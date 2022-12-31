@@ -36,8 +36,6 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         )
         .split(f.size());
 
-    // TODO: Help message
-
     let msg = match app.mode {
         AppMode::RegularMode => {
             vec![
