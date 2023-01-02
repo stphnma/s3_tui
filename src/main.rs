@@ -1,11 +1,10 @@
 // TODO: Add some documentation here
 
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture, KeyCode},
+    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use eyre;
 use std::{io, time::Duration};
 use tui::{backend::CrosstermBackend, Terminal};
 
@@ -33,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let app = App::new(args.bucket, args.prefix);
-    let tick_rate = Duration::from_millis(250);
+    let tick_rate = Duration::from_millis(100);
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -41,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let _res = run_app(&mut terminal, app, tick_rate);
+    run_app(&mut terminal, app, tick_rate);
 
     disable_raw_mode()?;
     execute!(

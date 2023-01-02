@@ -5,7 +5,7 @@ use crossterm::event::KeyCode;
 use eyre;
 use std::time::Duration;
 use tui::{
-    backend::{Backend, CrosstermBackend},
+    backend::Backend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
@@ -39,11 +39,13 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let msg = match app.mode {
         AppMode::RegularMode => {
             vec![
-                Span::raw("Use the arrow keys to navigate. Or press "),
+                Span::raw("Use the arrow keys to navigate. Press "),
                 Span::styled("f", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(" to filter "),
                 Span::styled("s", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to sort, or "),
+                Span::raw(" to sort, "),
+                Span::styled("c", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to copy the obj URI, or "),
                 Span::styled("q", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(" to exit."),
             ]
@@ -172,7 +174,7 @@ pub fn run_app<B: Backend>(
                     _ => Ok(()),
                 },
             },
-            Err(err) => Ok(()),
+            Err(_err) => Ok(()),
         };
     }
 }

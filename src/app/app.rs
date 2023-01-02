@@ -54,7 +54,7 @@ impl StatefulList<S3Result> {
     }
 
     pub fn copy(&mut self) {
-        let i = match self.state.selected() {
+        match self.state.selected() {
             Some(i) => {
                 let selected_item = self
                     .items
@@ -93,13 +93,12 @@ impl StatefulList<S3Result> {
     }
 
     pub fn previous(&mut self) {
-        let j = match self.state.selected() {
+        match self.state.selected() {
             Some(i) => {
                 let pos = match i {
                     0 => self.num_items_to_display - 1,
                     other => other - 1,
                 };
-                // if i == 0 { self.num_items_to_display - 1 } else { i - 1 }
                 self.state.select(Some(pos))
             }
             None => self.state.select(None),
