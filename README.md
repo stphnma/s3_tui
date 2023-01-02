@@ -12,13 +12,18 @@ You need to be already logged into AWS in your terminal for this to work:
 For the cli to pick up data, it needs to be called with an AWS bucket.
 
 ```
-s3 --bucket=my-awesome-bucket
+s3_tui --bucket=my-awesome-bucket
 ```
 
 optionally, you can add a prefix argument as well to further filter objects
 
 ```
-s3 --bucket=my-awesome-bucket --prefix=my-prefix
+s3_tui --bucket=my-awesome-bucket --prefix=my-prefix
 ```
 
-Functionality if fairly limited. Currently the tool can only navigate objects, and copy the uri path (which is all I need)
+Functionality if fairly minimal at the moment, since it works well for my personal purposes. Currently, you can:
+- Use the arrow keys to navigate around a bucket
+- Use the search bar to filter down objects by string matching
+- Press "c" when the cursor is on a object of interest to **copy it's URI**
+
+Feel free to raise an issue if more functionality is desired!
