@@ -24,6 +24,6 @@ s3_tui --bucket=my-awesome-bucket --prefix=my-prefix
 Functionality if fairly minimal at the moment, since it works well for my personal purposes. Currently, you can:
 - Use the arrow keys to navigate around a bucket
 - Use the search bar to filter down objects by string matching
-- Press "c" when the cursor is on a object of interest to **copy it's URI**
+- Press "c" when the cursor is on a object of interest to **copy its URI**
 
 Feel free to raise an issue if more functionality is desired!
