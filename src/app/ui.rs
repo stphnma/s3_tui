@@ -28,7 +28,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .margin(2)
         .constraints(
             [
-                Constraint::Min(1),
+                Constraint::Max(2),
                 Constraint::Length(3),
                 Constraint::Min(10),
             ]
@@ -174,7 +174,10 @@ pub fn run_app<B: Backend>(
                     _ => Ok(()),
                 },
             },
-            Err(_err) => Ok(()),
+            Err(_err) => {
+                println!("{:?}", _err);
+                return Ok(());
+            }
         };
     }
 }

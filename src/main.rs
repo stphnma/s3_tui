@@ -14,7 +14,6 @@ use app::app::AppMode;
 
 use app::ui::run_app;
 mod events;
-use events::Events;
 mod s3objects;
 
 use clap::Parser;
@@ -40,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    run_app(&mut terminal, app, tick_rate);
+    run_app(&mut terminal, app, tick_rate)?;
 
     disable_raw_mode()?;
     execute!(
