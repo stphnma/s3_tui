@@ -1,17 +1,13 @@
-use crate::events::Events;
-use crate::App;
-use crate::AppMode;
-use crossterm::event::KeyCode;
-use eyre;
-use std::time::Duration;
+use crate::app::{App, AppMode};
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
     widgets::{Block, Borders, Paragraph, Row, Table},
-    Frame, Terminal,
+    Frame,
 };
+use crate::s3objects::S3Result;
 
 fn fmt_size(size: i64) -> String {
     if size == 0 {
@@ -22,13 +18,26 @@ fn fmt_size(size: i64) -> String {
     }
 }
 
+fn result_style(res: &S3Result) -> Style {
+    // TODO: use match here somehow?
+    if res.is_directory{
+        return Style::default();
+    } else if res.label.contains(".cloudpickle") || res.label.contains(".pkl"){
+        return Style::default().fg(Color::LightMagenta);
+    } else if res.label.contains(".parquet"){
+        return Style::default().fg(Color::Green);
+    } else {
+        return Style::default().fg(Color::Yellow);
+    }
+}
+
 pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
         .constraints(
             [
-                Constraint::Max(2),
+                Constraint::Max(1),
                 Constraint::Length(3),
                 Constraint::Min(10),
             ]
@@ -91,10 +100,11 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .iter()
         .filter(|res| res.is_matched)
         .map(|res| {
+            let style = result_style(&res);
             Row::new(vec![
-                res.label.to_string(),
-                res.last_modified.to_string(),
-                fmt_size(res.size),
+                Span::styled(res.label.to_string(), style),
+                Span::styled(res.last_modified.to_string(), style),
+                Span::styled(fmt_size(res.size), style),                
             ])
         })
         .collect();
@@ -129,55 +139,3 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     f.render_stateful_widget(table, chunks[2], &mut app.items.state);
 }
 
-pub fn run_app<B: Backend>(
-    terminal: &mut Terminal<B>,
-    mut app: App,
-    tick_rate: Duration,
-) -> eyre::Result<()> {
-    let events = Events::new(tick_rate);
-
-    loop {
-        terminal.draw(|f| ui(f, &mut app))?;
-        match events.next() {
-            Ok(key) => match app.mode {
-                AppMode::SortMode => match key.code {
-                    KeyCode::Esc => Ok(app.mode = AppMode::RegularMode),
-                    KeyCode::Char('p') => Ok(app.items.sort_items("path", &mut app.sort_config)),
-                    KeyCode::Char('d') => {
-                        Ok(app.items.sort_items("last_modified", &mut app.sort_config))
-                    }
-                    _ => Ok(()),
-                },
-
-                AppMode::FilterMode => match key.code {
-                    KeyCode::Backspace => app.delete_from_search(),
-                    KeyCode::Char(c) => app.append_to_search(c),
-                    KeyCode::Esc => Ok(app.mode = AppMode::RegularMode),
-                    KeyCode::Down => Ok(app.mode = AppMode::RegularMode),
-                    KeyCode::Enter => app.filter_for_search(),
-                    _ => Ok(()),
-                },
-                AppMode::RegularMode => match key.code {
-                    KeyCode::Enter => app.items.refresh(),
-                    KeyCode::Right => app.items.refresh(),
-                    KeyCode::Left => app.items.goback(),
-                    KeyCode::Esc => Ok(app.items.unselect()),
-                    KeyCode::Down => Ok(app.items.next()),
-                    KeyCode::Up => Ok(app.items.previous()),
-                    KeyCode::Char('c') => Ok(app.items.copy()),
-                    KeyCode::Char('f') => Ok(app.mode = AppMode::FilterMode),
-                    KeyCode::Char('s') => Ok(app.mode = AppMode::SortMode),
-                    KeyCode::Char('r') => app.items.reset(),
-                    KeyCode::Char('q') => {
-                        return Ok(());
-                    }
-                    _ => Ok(()),
-                },
-            },
-            Err(_err) => {
-                println!("{:?}", _err);
-                return Ok(());
-            }
-        };
-    }
-}

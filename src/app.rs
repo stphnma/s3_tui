@@ -3,15 +3,20 @@ use clipboard::{ClipboardContext, ClipboardProvider};
 use std::path::Path;
 use tui::widgets::TableState;
 
+pub struct Item{
+    s3: S3Result,
+    is_matched: bool
+}
+
 pub struct StatefulList<S3Result> {
     pub state: TableState,
-    pub items: Vec<S3Result>,
+    pub items: Vec<Item>,
     pub num_items_to_display: usize,
-    pub bucket: String,
-    pub root_path: String,
-    pub current_path: String,
-    pub prev_path: String,
-    pub rt: tokio::runtime::Runtime,
+    // pub bucket: String,
+    // pub root_path: String,
+    // pub current_path: String,
+    // pub prev_path: String,
+    // pub rt: tokio::runtime::Runtime,
 }
 
 fn parse_prev_path(path: &str) -> String {
@@ -22,6 +27,32 @@ fn parse_prev_path(path: &str) -> String {
         },
         None => String::from(path),
     };
+}
+
+fn new_list_from_path(
+    rt: &tokio::runtime::Runtime, 
+    path: &Option<String>
+) -> Result<StatefulList<S3Result>, Box<dyn std::error::Error>>  {
+    // Query S3 API for a new list of items, and store results in a StatefulList
+    let path = match path {
+        Some(p) => p,
+        None => "",
+    };
+    let objects = rt.block_on(get_objects(bucket_name, path))?;
+
+    let mut items: Vec<Item> = Vec::new();
+    for obj in objects.unwrap(){
+        items.push(Item{
+            s3: obj,
+            is_matched: true,
+        })
+    }
+
+    Ok(StatefulList{
+        state: TableState::default(),
+        num_items_to_display: items.len(),
+        items: items,
+    })
 }
 
 impl StatefulList<S3Result> {
@@ -138,32 +169,32 @@ impl StatefulList<S3Result> {
         Ok(())
     }
 
-    pub fn goback(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // reset paths
-        self.current_path = self.prev_path.clone();
-        self.prev_path = parse_prev_path(&self.current_path);
+    // pub fn goback(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    //     // reset paths
+    //     self.current_path = self.prev_path.clone();
+    //     self.prev_path = parse_prev_path(&self.current_path);
 
-        // reset items
-        self.items = self
-            .rt
-            .block_on(get_objects(&self.bucket, &self.current_path))?;
-        self.num_items_to_display = self.items.len();
+    //     // reset items
+    //     self.items = self
+    //         .rt
+    //         .block_on(get_objects(&self.bucket, &self.current_path))?;
+    //     self.num_items_to_display = self.items.len();
 
-        self.unselect();
-        Ok(())
-    }
+    //     self.unselect();
+    //     Ok(())
+    // }
 
-    pub fn reset(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.current_path = self.root_path.clone();
-        self.prev_path = parse_prev_path(&self.current_path);
-        self.items = self
-            .rt
-            .block_on(get_objects(&self.bucket, &self.current_path))?;
-        self.num_items_to_display = self.items.len();
-        self.unselect();
+    // pub fn reset(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    //     self.current_path = self.root_path.clone();
+    //     self.prev_path = parse_prev_path(&self.current_path);
+    //     self.items = self
+    //         .rt
+    //         .block_on(get_objects(&self.bucket, &self.current_path))?;
+    //     self.num_items_to_display = self.items.len();
+    //     self.unselect();
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     pub fn sort_items(&mut self, key: &str, config: &mut SortConfig) {
         let ascending: bool;
@@ -199,6 +230,13 @@ pub struct SortConfig {
     pub ascending: bool,
 }
 
+pub struct S3Paths{
+    pub root: String,
+    pub previous: String,
+    pub current: String,
+    pub bucket: String,
+}
+
 pub enum AppMode {
     FilterMode,
     SortMode,
@@ -210,21 +248,109 @@ pub struct App {
     pub mode: AppMode,
     pub search_input: String,
     pub sort_config: SortConfig,
+    pub paths: S3Paths,
+
 }
 
+
+// pub fn refresh(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+//     // Loads the path that the cursor is currently on
+//     match self.state.selected() {
+//         Some(i) => {
+//             let selected_item = self.items.iter().filter(|res| res.is_matched).nth(i);
+
+//             match selected_item {
+//                 Some(s) => {
+//                     if s.is_directory {
+//                         // reset paths
+//                         self.prev_path = self.current_path.clone();
+//                         self.current_path = String::from(&s.path);
+
+//                         // reset items
+//                         let new_items = self.rt.block_on(get_objects(&self.bucket, &s.path))?;
+//                         self.num_items_to_display = new_items.len();
+//                         self.items = new_items;
+//                         self.unselect();
+//                     }
+//                 }
+//                 None => (),
+//             };
+//         }
+//         None => (),
+//     };
+
+//     Ok(())
+// }
+
 impl App {
-    pub fn new(bucket: String, path: Option<String>) -> App {
+    pub fn new(bucket: String, path: &Option<String>) -> App {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        let path = match path {
+            Some(p) => p,
+            None => "",
+        };
+    
         App {
-            items: StatefulList::from_path(&bucket, &path).unwrap(),
+            items: new_list_from_path(&rt, &path).unwrap(),
             mode: AppMode::RegularMode,
+            runtime: rt,
             search_input: "".to_string(),
             sort_config: SortConfig {
                 // default sorting from list_objects_v2
                 sort_key: "path".to_string(),
                 ascending: true,
             },
+            paths: S3Paths{
+                bucket: bucket,
+                previous: parse_prev_path(&path),
+                current: String::from(path),
+                root: String::from(path)
+            }
         }
     }
+
+    pub fn refresh(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Loads the S3 objects that the cursor is currently on, and refreshes 
+        // the page with said objects
+        match self.items.get_selected() {
+            Some(s) => {
+
+                match s {
+                    S3Result::Directory => {
+                        self.prev_path = self.current_path.clone();
+                        // TODO: append the search result
+
+                        self.paths::previous = self.current_path.clone();
+                        self.paths::current = String::from(&s.path);
+
+                        self.items = new_list_from_path(&runtime, &self.current_path)
+
+                        let new_items = self.rt.block_on(get_objects(&self.bucket, &s.path))?;
+
+                        
+
+                        // TODO: instatiate a new stateful list
+                        self.num_items_to_display = new_items.len();
+                        self.items = new_items;
+                    },
+                    _ => ()
+                }
+
+            }
+            None => ()
+        }
+        Ok(())
+    }
+
+    pub fn go_back(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Go back to the previous page
+
+
+    }
+
+
 
     pub fn append_to_search(&mut self, c: char) -> Result<(), Box<dyn std::error::Error>> {
         self.search_input.push(c);

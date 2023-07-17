@@ -2,14 +2,42 @@ use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3 as s3;
 use aws_smithy_types;
 
-pub struct S3Result {
-    pub path: String,
-    pub label: String,
-    pub size: i64,
-    pub is_directory: bool,
-    pub is_matched: bool,
-    pub last_modified: String,
+// pub struct S3File {
+//     pub path: String,
+//     pub label: String,
+//     pub size: i64,
+//     pub last_modified: String,
+// }
+
+// pub struct S3Directory {
+//     pub path: String,
+//     pub label: String,
+//     pub last_modified: String
+// }
+
+enum S3Result {
+    File {
+        pub path: String,
+        pub label: String,
+        pub size: i64,
+        pub last_modified: String,
+    } ,
+    Directory {
+        pub path: String,
+        pub label: String,
+        pub size: i64,
+        pub last_modified: String,
+    },
 }
+
+// pub struct S3Result {
+//     pub path: String,
+//     pub label: String,
+//     pub size: i64,
+//     pub is_directory: bool,
+//     pub is_matched: bool,
+//     pub last_modified: String,
+// }
 
 impl S3Result {
     fn new(path: String, size: i64, last_modified: Option<s3::types::DateTime>) -> S3Result {
@@ -33,14 +61,21 @@ impl S3Result {
             Some(date) => date.fmt(format).unwrap(),
         };
 
-        S3Result {
-            path: path.clone(),
-            size: size,
-            label: label,
-            is_directory: is_directory,
-            is_matched: true,
-            last_modified: date_str,
-        }
+       return  match is_directory{
+            true =>  S3Result::Directory {
+                path: path.clone(),
+                size: size,
+                label: label,
+                last_modified: date_str,
+            },
+            false => S3Result::File {
+                path: path.clone(),
+                size: size,
+                label: label,
+                last_modified: date_str,
+            },
+        };
+
     }
 }
 

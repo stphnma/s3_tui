@@ -1,5 +1,3 @@
-// TODO: Add some documentation here
-
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
@@ -9,13 +7,13 @@ use std::{io, time::Duration};
 use tui::{backend::CrosstermBackend, Terminal};
 
 mod app;
-use app::app::App;
-use app::app::AppMode;
-
-use app::ui::run_app;
+mod commands;
 mod events;
 mod s3objects;
+mod ui;
 
+use commands::run_app;
+use app::App;
 use clap::Parser;
 
 #[derive(Parser)]
