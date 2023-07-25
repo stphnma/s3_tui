@@ -15,20 +15,33 @@ use aws_smithy_types;
 //     pub last_modified: String
 // }
 
-enum S3Result {
-    File {
-        pub path: String,
-        pub label: String,
-        pub size: i64,
-        pub last_modified: String,
-    } ,
-    Directory {
-        pub path: String,
-        pub label: String,
-        pub size: i64,
-        pub last_modified: String,
-    },
+pub enum S3Type{
+    File,
+    Directory
 }
+
+pub struct S3Result {
+    pub path: String,
+    pub label: String,
+    pub size: i64,
+    pub last_modified: String,
+    pub kind: S3Type
+}
+
+//pub enum S3Result {
+///    File {
+ //       path: String,
+ //       label: String,
+ ///       size: i64,
+ ///       last_modified: String,
+ //   } ,
+ ///   Directory {
+  //      path: String,
+  //      label: String,
+  //      size: i64,
+  ///      last_modified: String,
+   // },
+//}
 
 // pub struct S3Result {
 //     pub path: String,
@@ -61,20 +74,18 @@ impl S3Result {
             Some(date) => date.fmt(format).unwrap(),
         };
 
-       return  match is_directory{
-            true =>  S3Result::Directory {
-                path: path.clone(),
-                size: size,
-                label: label,
-                last_modified: date_str,
-            },
-            false => S3Result::File {
-                path: path.clone(),
-                size: size,
-                label: label,
-                last_modified: date_str,
-            },
+        let kind = match is_directory {
+            true => S3Type::Directory,
+            false => S3Type::File,
         };
+
+        S3Result{
+            path: path.clone(),
+            size: size,
+            label: label,
+            last_modified: date_str,
+            kind: kind,
+        }
 
     }
 }

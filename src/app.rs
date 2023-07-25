@@ -1,96 +1,130 @@
-use crate::s3objects::{get_objects, S3Result};
+use crate::s3objects::{get_objects, S3Result, S3Type};
 use clipboard::{ClipboardContext, ClipboardProvider};
 use std::path::Path;
 use tui::widgets::TableState;
 
-pub struct Item{
-    s3: S3Result,
-    is_matched: bool
-}
-
-pub struct StatefulList<S3Result> {
-    pub state: TableState,
-    pub items: Vec<Item>,
-    pub num_items_to_display: usize,
-    // pub bucket: String,
-    // pub root_path: String,
-    // pub current_path: String,
-    // pub prev_path: String,
-    // pub rt: tokio::runtime::Runtime,
-}
-
-fn parse_prev_path(path: &str) -> String {
-    return match Path::new(path).parent() {
-        Some(p) => match p.to_str().unwrap() {
-            "" => "".to_string(),
-            other => other.to_string() + "/",
-        },
-        None => String::from(path),
-    };
-}
-
 fn new_list_from_path(
     rt: &tokio::runtime::Runtime, 
+    bucket_name: &String, 
     path: &Option<String>
-) -> Result<StatefulList<S3Result>, Box<dyn std::error::Error>>  {
-    // Query S3 API for a new list of items, and store results in a StatefulList
+) -> Result<Vec<S3Result>, Box<dyn std::error::Error>>  {
+    // Query S3 API for a new list of items
     let path = match path {
         Some(p) => p,
         None => "",
     };
     let objects = rt.block_on(get_objects(bucket_name, path))?;
 
-    let mut items: Vec<Item> = Vec::new();
-    for obj in objects.unwrap(){
-        items.push(Item{
-            s3: obj,
-            is_matched: true,
-        })
+    let mut items: Vec<S3Result> = Vec::new();
+    for obj in objects{
+        items.push(obj);
     }
 
-    Ok(StatefulList{
-        state: TableState::default(),
-        num_items_to_display: items.len(),
-        items: items,
-    })
+    Ok(items)
 }
 
-impl StatefulList<S3Result> {
-    fn from_path(
-        bucket_name: &str,
-        path: &Option<String>,
-    ) -> Result<StatefulList<S3Result>, Box<dyn std::error::Error>> {
+
+pub struct SortConfig {
+    pub sort_key: String,
+    pub ascending: bool,
+}
+
+pub enum AppMode {
+    FilterMode,
+    SortMode,
+    RegularMode,
+}
+
+
+pub struct App {
+    pub state: TableState,
+    pub items: Vec<S3Result>,
+    pub num_items_to_display: usize,
+    pub runtime: tokio::runtime::Runtime,
+    pub sort_config: SortConfig,
+    pub search: String,
+    pub bucket: String,
+    pub path: String,
+    pub mode: AppMode,
+}
+
+impl App {
+    
+    pub fn new(bucket: &String, path: &Option<String>) ->  Result<App, Box<dyn std::error::Error>> {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
+        
+        let items = new_list_from_path(&rt, bucket, path).unwrap();
 
-        let path = match path {
+        let search = match path {
             Some(p) => p,
             None => "",
         };
 
-        let items = rt.block_on(get_objects(bucket_name, path))?;
-        let prev_path = parse_prev_path(path);
+        let item_length = items.len();
 
-        Ok(StatefulList {
-            state: TableState::default(),
-            num_items_to_display: items.len(),
+        Ok(App {
             items: items,
-            bucket: String::from(bucket_name),
-            root_path: String::from(path),
-            current_path: String::from(path),
-            prev_path: prev_path,
-            rt: rt,
+            state: TableState::default(),
+            runtime: rt,
+            sort_config: SortConfig {
+                // default sorting from list_objects_v2
+                sort_key: "path".to_string(),
+                ascending: true,
+            },
+            search: search.to_string(),
+            bucket: bucket.to_string(),
+            path: search.to_string(),
+            num_items_to_display: item_length,
+            mode: AppMode::RegularMode,
         })
     }
+    pub fn refresh(&mut self) -> Result<(), Box<dyn std::error::Error>>{
+        // Refresh s3 view given current bucket and path
+        self.items = new_list_from_path(&self.runtime, &self.bucket, &Some(self.path.to_string()))?;
+        self.num_items_to_display = self.items.len();
+        self.unselect();
+        Ok(())
+    }
 
+    pub fn search(&mut self) {
+        self.path = self.search.to_string();
+        self.refresh();
+    }
+
+    pub fn go_to_selected(&mut self){
+        match self.state.selected(){
+            Some(i) => {
+                let selected = self.items.iter().nth(i);
+                match selected {
+                    Some(i) => {
+                        match i.kind {
+                            S3Type::Directory => { 
+                                self.search = i.path.to_string();
+                                self.path = i.path.to_string();
+                            },
+                            _ => (),
+                        };
+                    }
+                    None => ()
+                };
+            }
+            None => (),
+        }
+
+    }
+
+
+
+    // pub fn goback(&mut self) -> Result<(), Box<dyn std::error::Error>> {
     pub fn copy(&mut self) {
+        // Copy URI of selected item
         match self.state.selected() {
             Some(i) => {
                 let selected_item = self
                     .items
                     .iter()
-                    .filter(|res| res.is_matched)
                     .nth(i)
                     .unwrap();
                 let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
@@ -110,6 +144,7 @@ impl StatefulList<S3Result> {
     }
 
     pub fn next(&mut self) {
+        // scroll down
         let i = match self.state.selected() {
             Some(i) => {
                 if i >= self.num_items_to_display - 1 {
@@ -140,61 +175,15 @@ impl StatefulList<S3Result> {
         self.state.select(None);
     }
 
-    pub fn refresh(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // Loads the path that the cursor is currently on
-        match self.state.selected() {
-            Some(i) => {
-                let selected_item = self.items.iter().filter(|res| res.is_matched).nth(i);
-
-                match selected_item {
-                    Some(s) => {
-                        if s.is_directory {
-                            // reset paths
-                            self.prev_path = self.current_path.clone();
-                            self.current_path = String::from(&s.path);
-
-                            // reset items
-                            let new_items = self.rt.block_on(get_objects(&self.bucket, &s.path))?;
-                            self.num_items_to_display = new_items.len();
-                            self.items = new_items;
-                            self.unselect();
-                        }
-                    }
-                    None => (),
-                };
-            }
-            None => (),
-        };
-
+    pub fn append_to_search(&mut self, c: char) -> Result<(), Box<dyn std::error::Error>> {
+        self.search.push(c);
         Ok(())
     }
 
-    // pub fn goback(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-    //     // reset paths
-    //     self.current_path = self.prev_path.clone();
-    //     self.prev_path = parse_prev_path(&self.current_path);
-
-    //     // reset items
-    //     self.items = self
-    //         .rt
-    //         .block_on(get_objects(&self.bucket, &self.current_path))?;
-    //     self.num_items_to_display = self.items.len();
-
-    //     self.unselect();
-    //     Ok(())
-    // }
-
-    // pub fn reset(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-    //     self.current_path = self.root_path.clone();
-    //     self.prev_path = parse_prev_path(&self.current_path);
-    //     self.items = self
-    //         .rt
-    //         .block_on(get_objects(&self.bucket, &self.current_path))?;
-    //     self.num_items_to_display = self.items.len();
-    //     self.unselect();
-
-    //     Ok(())
-    // }
+    pub fn delete_from_search(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        self.search.pop();
+        Ok(())
+    }
 
     pub fn sort_items(&mut self, key: &str, config: &mut SortConfig) {
         let ascending: bool;
@@ -219,161 +208,11 @@ impl StatefulList<S3Result> {
                     .sort_by(|d1, d2| d2.last_modified.cmp(&d1.last_modified)),
             },
             _ => (),
-        }
-        config.ascending = ascending.clone();
-        config.sort_key = key.to_string();
-    }
-}
-
-pub struct SortConfig {
-    pub sort_key: String,
-    pub ascending: bool,
-}
-
-pub struct S3Paths{
-    pub root: String,
-    pub previous: String,
-    pub current: String,
-    pub bucket: String,
-}
-
-pub enum AppMode {
-    FilterMode,
-    SortMode,
-    RegularMode,
-}
-
-pub struct App {
-    pub items: StatefulList<S3Result>,
-    pub mode: AppMode,
-    pub search_input: String,
-    pub sort_config: SortConfig,
-    pub paths: S3Paths,
-
-}
-
-
-// pub fn refresh(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-//     // Loads the path that the cursor is currently on
-//     match self.state.selected() {
-//         Some(i) => {
-//             let selected_item = self.items.iter().filter(|res| res.is_matched).nth(i);
-
-//             match selected_item {
-//                 Some(s) => {
-//                     if s.is_directory {
-//                         // reset paths
-//                         self.prev_path = self.current_path.clone();
-//                         self.current_path = String::from(&s.path);
-
-//                         // reset items
-//                         let new_items = self.rt.block_on(get_objects(&self.bucket, &s.path))?;
-//                         self.num_items_to_display = new_items.len();
-//                         self.items = new_items;
-//                         self.unselect();
-//                     }
-//                 }
-//                 None => (),
-//             };
-//         }
-//         None => (),
-//     };
-
-//     Ok(())
-// }
-
-impl App {
-    pub fn new(bucket: String, path: &Option<String>) -> App {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
-        let path = match path {
-            Some(p) => p,
-            None => "",
         };
-    
-        App {
-            items: new_list_from_path(&rt, &path).unwrap(),
-            mode: AppMode::RegularMode,
-            runtime: rt,
-            search_input: "".to_string(),
-            sort_config: SortConfig {
-                // default sorting from list_objects_v2
-                sort_key: "path".to_string(),
-                ascending: true,
-            },
-            paths: S3Paths{
-                bucket: bucket,
-                previous: parse_prev_path(&path),
-                current: String::from(path),
-                root: String::from(path)
-            }
-        }
-    }
-
-    pub fn refresh(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // Loads the S3 objects that the cursor is currently on, and refreshes 
-        // the page with said objects
-        match self.items.get_selected() {
-            Some(s) => {
-
-                match s {
-                    S3Result::Directory => {
-                        self.prev_path = self.current_path.clone();
-                        // TODO: append the search result
-
-                        self.paths::previous = self.current_path.clone();
-                        self.paths::current = String::from(&s.path);
-
-                        self.items = new_list_from_path(&runtime, &self.current_path)
-
-                        let new_items = self.rt.block_on(get_objects(&self.bucket, &s.path))?;
-
-                        
-
-                        // TODO: instatiate a new stateful list
-                        self.num_items_to_display = new_items.len();
-                        self.items = new_items;
-                    },
-                    _ => ()
-                }
-
-            }
-            None => ()
-        }
-        Ok(())
-    }
-
-    pub fn go_back(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // Go back to the previous page
-
-
-    }
-
-
-
-    pub fn append_to_search(&mut self, c: char) -> Result<(), Box<dyn std::error::Error>> {
-        self.search_input.push(c);
-        Ok(())
-    }
-    pub fn delete_from_search(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.search_input.pop();
-        Ok(())
-    }
-
-    pub fn filter_for_search(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        for item in &mut self.items.items {
-            if item
-                .label
-                .to_lowercase()
-                .contains(&self.search_input.to_lowercase())
-            {
-                item.is_matched = true;
-            } else {
-                item.is_matched = false;
-            }
-        }
-
-        Ok(())
+        //config.ascending = ascending.clone();
+        //config.sort_key = key.to_string();     
     }
 }
+
+
+

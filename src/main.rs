@@ -28,7 +28,7 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let app = App::new(args.bucket, args.prefix);
+    let app = App::new(&args.bucket, &args.prefix)?;
     let tick_rate = Duration::from_millis(100);
 
     enable_raw_mode()?;

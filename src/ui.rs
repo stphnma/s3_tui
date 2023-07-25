@@ -7,7 +7,7 @@ use tui::{
     widgets::{Block, Borders, Paragraph, Row, Table},
     Frame,
 };
-use crate::s3objects::S3Result;
+use crate::s3objects::{S3Result, S3Type};
 
 fn fmt_size(size: i64) -> String {
     if size == 0 {
@@ -20,7 +20,8 @@ fn fmt_size(size: i64) -> String {
 
 fn result_style(res: &S3Result) -> Style {
     // TODO: use match here somehow?
-    if res.is_directory{
+
+    if let S3Type::Directory = res.kind{
         return Style::default();
     } else if res.label.contains(".cloudpickle") || res.label.contains(".pkl"){
         return Style::default().fg(Color::LightMagenta);
@@ -84,7 +85,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let help_message = Paragraph::new(text);
     f.render_widget(help_message, chunks[0]);
 
-    let search = Paragraph::new(app.search_input.to_string())
+    let search = Paragraph::new(app.search.to_string())
         .style(match app.mode {
             AppMode::FilterMode => Style::default().fg(Color::Yellow),
             AppMode::SortMode => Style::default().fg(Color::Yellow),
@@ -96,9 +97,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     let items: Vec<Row> = app
         .items
-        .items
         .iter()
-        .filter(|res| res.is_matched)
         .map(|res| {
             let style = result_style(&res);
             Row::new(vec![
@@ -109,7 +108,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         })
         .collect();
 
-    let path = app.items.current_path.to_string();
+    let path = app.path.to_string();
 
     let mut table = Table::new(items)
         .style(Style::default().fg(Color::White))
@@ -136,6 +135,6 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             .highlight_symbol(">> ");
     }
 
-    f.render_stateful_widget(table, chunks[2], &mut app.items.state);
+    f.render_stateful_widget(table, chunks[2], &mut app.state);
 }
 
