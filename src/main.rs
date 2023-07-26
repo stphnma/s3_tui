@@ -1,5 +1,3 @@
-// TODO: Add some documentation here
-
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
@@ -9,13 +7,13 @@ use std::{io, time::Duration};
 use tui::{backend::CrosstermBackend, Terminal};
 
 mod app;
-use app::app::App;
-use app::app::AppMode;
-
-use app::ui::run_app;
+mod commands;
 mod events;
 mod s3objects;
+mod ui;
 
+use commands::run_app;
+use app::App;
 use clap::Parser;
 
 #[derive(Parser)]
@@ -30,7 +28,7 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let app = App::new(args.bucket, args.prefix);
+    let app = App::new(&args.bucket, &args.prefix)?;
     let tick_rate = Duration::from_millis(100);
 
     enable_raw_mode()?;
