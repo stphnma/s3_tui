@@ -2,19 +2,6 @@ use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3 as s3;
 use aws_smithy_types;
 
-// pub struct S3File {
-//     pub path: String,
-//     pub label: String,
-//     pub size: i64,
-//     pub last_modified: String,
-// }
-
-// pub struct S3Directory {
-//     pub path: String,
-//     pub label: String,
-//     pub last_modified: String
-// }
-
 pub enum S3Type{
     File,
     Directory
@@ -28,29 +15,6 @@ pub struct S3Result {
     pub kind: S3Type
 }
 
-//pub enum S3Result {
-///    File {
- //       path: String,
- //       label: String,
- ///       size: i64,
- ///       last_modified: String,
- //   } ,
- ///   Directory {
-  //      path: String,
-  //      label: String,
-  //      size: i64,
-  ///      last_modified: String,
-   // },
-//}
-
-// pub struct S3Result {
-//     pub path: String,
-//     pub label: String,
-//     pub size: i64,
-//     pub is_directory: bool,
-//     pub is_matched: bool,
-//     pub last_modified: String,
-// }
 
 impl S3Result {
     fn new(path: String, size: i64, last_modified: Option<s3::types::DateTime>) -> S3Result {
@@ -86,7 +50,6 @@ impl S3Result {
             last_modified: date_str,
             kind: kind,
         }
-
     }
 }
 

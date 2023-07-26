@@ -8,7 +8,7 @@ fn new_list_from_path(
     bucket_name: &String, 
     path: &Option<String>
 ) -> Result<Vec<S3Result>, Box<dyn std::error::Error>>  {
-    // Query S3 API for a new list of items
+    // Query S3  for a new list of items
     let path = match path {
         Some(p) => p,
         None => "",
@@ -23,6 +23,16 @@ fn new_list_from_path(
     Ok(items)
 }
 
+fn parse_prev_path(path: &str) -> String {
+    // parse the parent path
+    return match Path::new(path).parent() {
+        Some(p) => match p.to_str().unwrap() {
+            "" => "".to_string(),
+            other => other.to_string() + "/",
+        },
+        None => String::from(path),
+    };
+}
 
 pub struct SortConfig {
     pub sort_key: String,
@@ -90,6 +100,7 @@ impl App {
 
     pub fn search(&mut self) {
         self.path = self.search.to_string();
+        // TODO: handle error
         self.refresh();
     }
 
@@ -103,6 +114,7 @@ impl App {
                             S3Type::Directory => { 
                                 self.search = i.path.to_string();
                                 self.path = i.path.to_string();
+                                self.refresh();
                             },
                             _ => (),
                         };
@@ -112,12 +124,14 @@ impl App {
             }
             None => (),
         }
-
     }
 
+    pub fn go_back(&mut self){
+        self.path = parse_prev_path(&self.path);
+        self.search = self.path.to_string();
+        self.refresh();
+    }
 
-
-    // pub fn goback(&mut self) -> Result<(), Box<dyn std::error::Error>> {
     pub fn copy(&mut self) {
         // Copy URI of selected item
         match self.state.selected() {
@@ -159,6 +173,7 @@ impl App {
     }
 
     pub fn previous(&mut self) {
+        // Scroll up
         match self.state.selected() {
             Some(i) => {
                 let pos = match i {
@@ -185,33 +200,6 @@ impl App {
         Ok(())
     }
 
-    pub fn sort_items(&mut self, key: &str, config: &mut SortConfig) {
-        let ascending: bool;
-
-        if key == config.sort_key {
-            ascending = !config.ascending;
-        } else {
-            ascending = true;
-        }
-
-        match key {
-            "path" => match ascending {
-                true => self.items.sort_by(|d1, d2| d1.path.cmp(&d2.path)),
-                false => self.items.sort_by(|d1, d2| d2.path.cmp(&d1.path)),
-            },
-            "last_modified" => match ascending {
-                true => self
-                    .items
-                    .sort_by(|d1, d2| d1.last_modified.cmp(&d2.last_modified)),
-                false => self
-                    .items
-                    .sort_by(|d1, d2| d2.last_modified.cmp(&d1.last_modified)),
-            },
-            _ => (),
-        };
-        //config.ascending = ascending.clone();
-        //config.sort_key = key.to_string();     
-    }
 }
 
 
